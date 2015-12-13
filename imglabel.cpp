@@ -1,4 +1,4 @@
-#include "imglabel.h"
+﻿#include "imglabel.h"
 
 ImgLabel::ImgLabel(QWidget *parent):
     QLabel(parent)
@@ -12,6 +12,16 @@ ImgLabel::ImgLabel(QWidget *parent):
 void ImgLabel::mousePressEvent(QMouseEvent *e)
 {
 
+#ifdef NETMAP
+
+#else
+    QPoint pos = e->pos();
+    int cluster = pos.x() / imw + pos.y() / imh * f2;
+    QString tmpPath = path + '/' + clusterFolder[cluster];
+    std::cout << "mouse press event " <<cluster<< " " << tmpPath.toStdString() << std::endl;
+    tmpPath.replace("/","\\"); //将地址中的"/"替换为"\"，因为在Windows下使用的是"\"。
+    QProcess::startDetached("explorer "+tmpPath);
+#endif
 }
 
 void ImgLabel::mouseReleaseEvnet(QMouseEvent *e)
@@ -25,6 +35,7 @@ void ImgLabel::paintEvent(QPaintEvent *e)
     QPainter *painter = new QPainter(this);
     QPen pen = QPen(Qt::red,2);
     painter->setPen(pen);
+#ifdef NETMAP
     if(cateCenterLabel.size())
     {
         for(int i=0;i<NUMCluster;i++)
@@ -42,6 +53,16 @@ void ImgLabel::paintEvent(QPaintEvent *e)
             }
         }
     }
+#else
+    if(cateCenterLabel.size())
+    {
+        for(int i=0; i < NUMCluster; i++)
+        {
+            QImage tmp = mat2Qimage(scImgs[clusters[i].numImgs[0]]);
+            painter->drawImage(shift(cateCenterLabel[i]),tmp);
+        }
+    }
+#endif
 
 }
 
@@ -51,19 +72,26 @@ void ImgLabel::open()
                tr("Open Image"),".",
                tr("Image Files(*.png *.jpg *.jpeg *.bmp)"));
 
+    std::cout << "filelist size " << filelist.size() << std::endl;
+//    qDebug() << "filelist size "<<filelist.size() << endl;
     // set path
     path = filelist.at(0);
     int pos = path.lastIndexOf('/');
     path = path.remove(pos,path.length() - pos);
-    qDebug() << "read in path " << path <<endl;
+     std::cout << "read in path" << std::endl;
+//    qDebug() << "read in path " << path <<endl;
     readin();
-    qDebug()<<"read in done"<< endl;
+    std::cout << "read in done"<< std::endl;
+//    qDebug()<<"read in done"<< endl;
     setfea();
-    qDebug() << "setfea done" << endl;
+    std::cout << "setfea done" << std::endl;
+//    qDebug() << "setfea done" << endl;
     setKmeans(NUMCluster);
-    qDebug() << "kmeans done" << endl;
+    std::cout << "kmeans done"<< std::endl;
+//    qDebug() << "kmeans done" << endl;
     initialClusters();
-    qDebug() << "clusters done " << endl;
+    std::cout << "clusters done " << std::endl;
+//    qDebug() << "clusters done " << endl;
 //    labelw = imw * cate * 5;
 //    labelh = imh * cate * 5;
     // factor of cate
@@ -75,14 +103,25 @@ void ImgLabel::open()
         f1++;
 
     // set label width and height
+#ifdef NETMAP
     labelw = imw * f1 * 5;
     labelh = imh * f2 * 5;
-
+#else
+    labelw = imw * f1;
+    labelh = imw * f2;
+#endif
     setCateCenterLabel(f1,f2);
     QPixmap tmp(labelw,labelh);
     tmp.fill(Qt::white);
     this->setPixmap(tmp);
-    qDebug()<<"setCateCenterLabel done"<<endl;
+    std::cout << "setCateCenterLabel done " << std::endl;
+
+#ifdef NETMAP
+
+#else
+    save();
+#endif
+//    qDebug()<<"setCateCenterLabel done"<<endl;
     update();
 }
 
@@ -97,14 +136,6 @@ void ImgLabel::readin()
 
         QString tmp = getRgbPath(filelist.at(i));
 
-//        int pos_,pos__;
-//        QString tmp = filelist.at(i);
-//        pos_ = tmp.lastIndexOf('/');
-//        tmp = tmp.replace(pos_,1,'_');
-//        pos__ = tmp.lastIndexOf('/');
-//        tmp = tmp.replace(pos__,1,'_');
-//        pos__ = tmp.lastIndexOf('/');
-//        tmp = tmp.remove(pos__+1,pos_ - pos__);
         cv::Mat tmpscImg = cv::imread(tmp.toStdString().c_str());
 //        qDebug() << rgbPath.append(filelist.at(i)) << endl;
         double ratiow,ratioh;
@@ -198,13 +229,18 @@ void ImgLabel::setKmeans(int k)
 
 void ImgLabel::setCateCenterLabel(int f1,int f2)
 {
+#ifdef NETMAP
     int wstep = imw * 5;
     int hstep = imh * 5;
+#else
+    int wstep = imw;
+    int hstep = imh;
+#endif
     QPointF ini(wstep / 2,hstep / 2);
     for(int i=0;i<f1;i++)
         for(int j=0;j<f2;j++)
         {
-            QPointF tmp = ini + QPointF(i * wstep, j * hstep);
+            QPointF tmp = ini + QPointF(j * wstep, i * hstep);
             cateCenterLabel.push_back(tmp);
         }
 }
@@ -221,12 +257,16 @@ void ImgLabel::initialClusters()
         std::vector<float> tmpcenter;
         for(int j=0; j < fea.cols ; j++)
             tmpcenter.push_back(centers.at<float>(i,j));
+#ifdef NETMAP
         Cluster tmp(fea,
                     tmpcenter,
                     label,
                     i,
                     2.0 * imw,
                     2.0 * imh);
+#else
+        Cluster tmp(label, i);
+#endif
         clusters.push_back(tmp);
     }
 }
@@ -246,14 +286,18 @@ void ImgLabel::save()
     QString folder = time.toString("yyyyMMddhhmm");
     folder = folder + "_" + QString::number(NUMCluster);
 //    qDebug()<< folder << endl;
+    std::cout << "save... " << path.toStdString() << std::endl;
 //    folder = path + "/" + folder;
     dir.mkdir(folder);
-
+    clusterFolder.clear();
     // make folders named by the id of cluster
     // and copy the file in to them
 
     for(int i=0;i<NUMCluster;i++)
+    {
         dir.mkdir(folder + "/" + QString::number(i));
+        clusterFolder.push_back(folder + "/" + QString::number(i));
+    }
 
     for(int i=0;i<filelist.size();i++)
     {
@@ -309,6 +353,7 @@ QString ImgLabel::getRgbPath(QString path)
 QString ImgLabel::getFilename(QString path)
 {
     int pos = path.lastIndexOf('/');
+    // equals substring
     QString res = path.mid(pos + 1);
     return res;
 }

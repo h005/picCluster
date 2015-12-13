@@ -1,4 +1,4 @@
-#ifndef IMGLABEL_H
+﻿#ifndef IMGLABEL_H
 #define IMGLABEL_H
 
 #include <QLabel>
@@ -14,8 +14,11 @@
 #include <opencv.hpp>
 #include <QPointF>
 #include <QDateTime>
-#include <qDebug>
+#include <QtDebug>
+#include <QMouseEvent>
+#include <QProcess>
 #include "cluster.h"
+#include "mode.h"
 
 class ImgLabel : public QLabel
 {
@@ -65,6 +68,7 @@ private:
     int NUMCluster;
     QString path;
     QStringList filelist;
+    std::vector<QString> clusterFolder;
     std::vector<cv::Mat> imgs;
     std::vector<cv::Mat> scImgs;
     cv::Mat fea;

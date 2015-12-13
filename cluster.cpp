@@ -1,4 +1,4 @@
-#include "cluster.h"
+﻿#include "cluster.h"
 
 Cluster::Cluster()
 {
@@ -22,6 +22,13 @@ Cluster::Cluster(cv::Mat &fea,
     double theta = 2.0 * pi / numImgs.size();
     double rmax =  wstep >  hstep ?  hstep :  wstep;
     setCoord(fea,theta,rmax);
+}
+
+Cluster::Cluster(cv::Mat &label, int id)
+{
+    for(int i=0;i<label.rows;i++)
+        if(label.at<int>(i,0) == id)
+            numImgs.push_back(i);
 }
 
 void Cluster::setCoord(cv::Mat &fea,double theta, double rmax)

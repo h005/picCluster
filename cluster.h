@@ -1,4 +1,4 @@
-#ifndef CLUSTER_H
+﻿#ifndef CLUSTER_H
 #define CLUSTER_H
 
 #include <vector>
@@ -16,6 +16,9 @@ public:
             int id,
             float wstep,
             float hstep);
+
+    Cluster(cv::Mat &label,
+            int id);
 
     std::vector<QPointF> coordImgs;
     std::vector<int> numImgs;
