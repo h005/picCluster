@@ -16,7 +16,9 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
 
 #else
     QPoint pos = e->pos();
-    int cluster = pos.x() / imw + pos.y() / imh * f2;
+    int cluster = pos.x() / imw + pos.y() / imh * f1;
+    if(cluster >= NUMCluster)
+        return;
     QString tmpPath = path + '/' + clusterFolder[cluster];
     std::cout << "mouse press event " <<cluster<< " " << tmpPath.toStdString() << std::endl;
     tmpPath.replace("/","\\"); //将地址中的"/"替换为"\"，因为在Windows下使用的是"\"。
@@ -108,7 +110,7 @@ void ImgLabel::open()
     labelh = imh * f2 * 5;
 #else
     labelw = imw * f1;
-    labelh = imw * f2;
+    labelh = imh * f2;
 #endif
     setCateCenterLabel(f1,f2);
     QPixmap tmp(labelw,labelh);
@@ -237,8 +239,8 @@ void ImgLabel::setCateCenterLabel(int f1,int f2)
     int hstep = imh;
 #endif
     QPointF ini(wstep / 2,hstep / 2);
-    for(int i=0;i<f1;i++)
-        for(int j=0;j<f2;j++)
+    for(int i=0;i<f2;i++)
+        for(int j=0;j<f1;j++)
         {
             QPointF tmp = ini + QPointF(j * wstep, i * hstep);
             cateCenterLabel.push_back(tmp);
