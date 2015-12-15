@@ -6,9 +6,11 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    label = new ImgLabel();
+    treeWidget = new QTreeWidget();
+    label = new ImgLabel(treeWidget);
     ui->scrollArea->setWidget(label);
     ui->scrollArea->resize(600,600);
+//    ui->treeScroll->setWidget(treeWidget);
     ui->open->setShortcut(Qt::Key_O);
     ui->save->setShortcut(Qt::Key_S);
 }
@@ -21,9 +23,13 @@ MainWindow::~MainWindow()
 void MainWindow::on_open_clicked()
 {
     label->open();
+    treeWidget = label->treeWidget;
+    ui->treeScroll->setWidget(treeWidget);
+    connect(treeWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
+                               label,SLOT(setCurItem()));
 }
 
 void MainWindow::on_save_clicked()
 {
-    label->save();
+//    label->save();
 }
