@@ -32,9 +32,6 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
         tmpPath = path + '/' + cur->fname;
 #else
 
-    if(cluster >= NUMCluster)
-        return;
-    QString tmpPath = path + '/' + clusterFolder[cluster];
 #endif
 
     std::cout << "mouse press event " <<cluster<< " " << tmpPath.toStdString() << std::endl;
