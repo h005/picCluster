@@ -147,6 +147,7 @@ void ImgLabel::readin()
         cv::resize(tmpscImg,
                    tmpscImg,
                    cv::Size((int)(ratio * tmpscImg.cols + 0.5),(int)(ratio * tmpscImg.rows + 0.5)));
+        cv::cvtColor(tmpscImg,tmpscImg,CV_BGR2RGB);
         scImgs.push_back(tmpscImg);
 
     }
@@ -331,7 +332,6 @@ QPointF ImgLabel::shift(QPointF &p)
 
 QImage ImgLabel::mat2Qimage(cv::Mat &mat)
 {
-    cv::cvtColor(mat,mat,CV_BGR2RGB);
     QImage img((uchar*)mat.data,
                mat.cols,mat.rows,
                mat.cols * mat.channels(),
