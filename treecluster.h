@@ -1,4 +1,4 @@
-#ifndef TREECLUSTER_H
+﻿#ifndef TREECLUSTER_H
 #define TREECLUSTER_H
 
 #include <iostream>
@@ -14,7 +14,8 @@ public:
     TreeCluster(QString fname,
                 int numc,
                 int picID,
-                std::vector<float> center);
+                std::vector<float> center,
+                std::vector<int> imgs);
 
     void appendChild(TreeCluster *p);
 
@@ -28,10 +29,13 @@ public:
     QString fname;
     // for folder num means number of cluseters
     // for file num means number of files
+    // picID is the represent pic id
     int numc,picID,num;
     TreeCluster *child; // to child
     TreeCluster *next; // to brother
     std::vector<float> center;
+    // imgs id in this cluster
+    std::vector<int> imgs;
 };
 
 #endif // TREECLUSTER_H

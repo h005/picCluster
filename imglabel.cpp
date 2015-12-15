@@ -87,8 +87,12 @@ void ImgLabel::paintEvent(QPaintEvent *e)
             }
         else
         {
-            QImage tmp = mat2Qimage(scImgs[cur->picID]);
-            painter->drawImage(shift(cateCenterLabel[0]),tmp);
+            for(int i=0; i < cur->num; i++)
+            {
+                QImage tmp = mat2Qimage(scImgs[cur->imgs[i]]);
+                painter->drawImage(shift(cateCenterLabel[i]),tmp);
+            }
+
         }
 #else
         for(int i=0; i < NUMCluster; i++)
@@ -126,14 +130,15 @@ void ImgLabel::open()
         tmpcenter.push_back(fea.at<float>(0,i));
     QDateTime time = QDateTime::currentDateTime();
     QString folder = time.toString("yyyyMMddhhmm");
+    std::vector<int> elements;
+    for(int i=0;i<filelist.size();i++)
+        elements.push_back(i);
     // not absolute path just a folder name
     tc = new TreeCluster(folder,
                          filelist.size(),
                          0,
-                         tmpcenter);
-    std::vector<int> elements;
-    for(int i=0;i<filelist.size();i++)
-        elements.push_back(i);
+                         tmpcenter,
+                         elements);
     pos = path.lastIndexOf('/');
     QString pathC = path.remove(pos,path.length() - pos);
     dir = QDir(pathC);
@@ -590,7 +595,8 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
         TreeCluster *child = new TreeCluster(root->fname + "/" + QString::number(i),
                                                cElements[i].size(),
                                                cElements[i][0],
-                                               tmpvecCenters[i]);
+                                               tmpvecCenters[i],
+                                               cElements[i]);
 //        std::cout << "child " << child->fname.toStdString() << std::endl;
         root->appendChild(child);
         recursiveKmeans(child,cElements[i]);

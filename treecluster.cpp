@@ -1,4 +1,4 @@
-#include "treecluster.h"
+﻿#include "treecluster.h"
 
 TreeCluster::TreeCluster()
 {
@@ -15,7 +15,8 @@ TreeCluster::TreeCluster()
 TreeCluster::TreeCluster(QString fname,
                          int num,
                          int picID,
-                         std::vector<float> center)
+                         std::vector<float> center,
+                         std::vector<int> imgs)
 {
     this->num = num;
     this->numc = (int)sqrt((double)num);
@@ -24,6 +25,7 @@ TreeCluster::TreeCluster(QString fname,
     child = NULL;
     next = NULL;
     this->center = center;
+    this->imgs = imgs;
 }
 
 void TreeCluster::appendChild(TreeCluster *p)
