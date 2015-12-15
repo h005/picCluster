@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTreeWidget>
 #include "imglabel.h"
 
 namespace Ui {
@@ -24,6 +25,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
     ImgLabel *label;
+    QTreeWidget *treeWidget;
 };
 
 #endif // MAINWINDOW_H

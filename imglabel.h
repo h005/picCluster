@@ -17,14 +17,18 @@
 #include <QtDebug>
 #include <QMouseEvent>
 #include <QProcess>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include "cluster.h"
 #include "mode.h"
+#include "treecluster.h"
+#include <map>
 
 class ImgLabel : public QLabel
 {
     Q_OBJECT
 public:
-    ImgLabel(QWidget *parent = 0);
+    ImgLabel(QTreeWidget *treeWidget,QWidget *parent = 0);
 
     void mousePressEvent(QMouseEvent *e);
     void mouseReleaseEvnet(QMouseEvent *e);
@@ -33,6 +37,8 @@ public:
     void open();
 
     void save();
+public slots:
+    void setCurItem();
 
 private:
     // read images into imgs
@@ -61,6 +67,32 @@ private:
     QString getRgbPath(QString path);
 
     QString getFilename(QString path);
+
+    int getNUMCluster(int num);
+
+    void recursiveKmeans(TreeCluster *root,
+                         std::vector<int> &elements);
+
+    // check wheather all the elemnets are the same
+    bool allsame(std::vector<int> &elements);
+
+    void recursiveSave();
+
+    void recursiveSave(TreeCluster *p, QDir &dir, QString &folder);
+
+    void copyfilesLink(TreeCluster *root,
+                       std::vector<int> &elements);
+
+    void initialTreeWidget();
+
+    void genTreeWidgetItem(QTreeWidgetItem *treeWidget,
+                           TreeCluster *roots);
+
+    void factorOfCate(int cate);
+
+    void setClusterFolder(TreeCluster *root);
+public:
+    QTreeWidget *treeWidget;
 private:
 
     QImage image;
@@ -82,7 +114,11 @@ private:
 
     // cols rows in Qlabel
     int f1,f2;
-
+    TreeCluster *tc,*cur;
+    QTreeWidgetItem *curItem;
+    // item cluster map
+    std::map<QTreeWidgetItem* , TreeCluster* > icmap;
+    QDir dir;
 };
 
 #endif // IMGLABEL_H

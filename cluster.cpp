@@ -36,10 +36,10 @@ void Cluster::setCoord(cv::Mat &fea,double theta, double rmax)
     // distance to center
     std::vector<double> dis;
     double max = 0.0;
-    for(int i=0;i<numImgs.size();i++)
+    for(unsigned int i=0;i<numImgs.size();i++)
     {
         double tmp = 0.0;
-        for(int j=0;j < center.size();j++)
+        for(unsigned int j=0;j < center.size();j++)
         {
             tmp += (fea.at<float>(numImgs[i],j) - center[j])
                     * (fea.at<float>(numImgs[i],j) - center[j]);
@@ -48,7 +48,7 @@ void Cluster::setCoord(cv::Mat &fea,double theta, double rmax)
         dis.push_back(tmp);
     }
     // compute x,y coordinate of center of image
-    for(int i=0;i<numImgs.size();i++)
+    for(unsigned int i=0;i<numImgs.size();i++)
     {
         double r = 0.0;
         if(max)

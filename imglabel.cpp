@@ -1,12 +1,15 @@
 ﻿#include "imglabel.h"
 
-ImgLabel::ImgLabel(QWidget *parent):
+ImgLabel::ImgLabel(QTreeWidget *treeWidget, QWidget *parent):
     QLabel(parent)
 {
+    this->treeWidget = treeWidget;
     image = QImage();
     imw = 100;
     imh = 100;
-    NUMCluster = 50;
+    NUMCluster = 2;
+    tc = new TreeCluster();
+    curItem = NULL;
 }
 
 void ImgLabel::mousePressEvent(QMouseEvent *e)
@@ -16,12 +19,30 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
 
 #else
     QPoint pos = e->pos();
-    int cluster = pos.x() / imw + pos.y() / imh * f2;
+    int cluster = pos.x() / imw + pos.y() / imh * f1;
+    // click the white area will map to a cluster larger then NUMCluster
+    // will lead to error
+#ifdef TREECLUSTER
+    if(cluster >= cur->numc)
+        return;
+    QString tmpPath;
+    if(cur->numc > 1)
+        tmpPath = path + '/' + cur->get(cluster)->fname;
+    else
+        tmpPath = path + '/' + cur->fname;
+#else
+
+    if(cluster >= NUMCluster)
+        return;
     QString tmpPath = path + '/' + clusterFolder[cluster];
+#endif
+
     std::cout << "mouse press event " <<cluster<< " " << tmpPath.toStdString() << std::endl;
     tmpPath.replace("/","\\"); //将地址中的"/"替换为"\"，因为在Windows下使用的是"\"。
     QProcess::startDetached("explorer "+tmpPath);
+
 #endif
+
 }
 
 void ImgLabel::mouseReleaseEvnet(QMouseEvent *e)
@@ -31,6 +52,7 @@ void ImgLabel::mouseReleaseEvnet(QMouseEvent *e)
 
 void ImgLabel::paintEvent(QPaintEvent *e)
 {
+
     QLabel::paintEvent(e);
     QPainter *painter = new QPainter(this);
     QPen pen = QPen(Qt::red,2);
@@ -54,14 +76,32 @@ void ImgLabel::paintEvent(QPaintEvent *e)
         }
     }
 #else
+    std::cout << "cateCenterLabel size " << cateCenterLabel.size() << std::endl;
     if(cateCenterLabel.size())
     {
+#ifdef TREECLUSTER
+        // TreeCluster 中如果只有一个元素，那么这个TreeCluster则没有child
+        // so it is
+        if(cur->numc != 1)
+            for(int i=0; i < cur->numc; i++)
+            {
+                QImage tmp = mat2Qimage(scImgs[cur->get(i)->picID]);
+                painter->drawImage(shift(cateCenterLabel[i]),tmp);
+            }
+        else
+        {
+            QImage tmp = mat2Qimage(scImgs[cur->picID]);
+            painter->drawImage(shift(cateCenterLabel[0]),tmp);
+        }
+#else
         for(int i=0; i < NUMCluster; i++)
         {
             QImage tmp = mat2Qimage(scImgs[clusters[i].numImgs[0]]);
             painter->drawImage(shift(cateCenterLabel[i]),tmp);
         }
+#endif
     }
+
 #endif
 
 }
@@ -73,56 +113,104 @@ void ImgLabel::open()
                tr("Image Files(*.png *.jpg *.jpeg *.bmp)"));
 
     std::cout << "filelist size " << filelist.size() << std::endl;
-//    qDebug() << "filelist size "<<filelist.size() << endl;
+
     // set path
     path = filelist.at(0);
     int pos = path.lastIndexOf('/');
     path = path.remove(pos,path.length() - pos);
-     std::cout << "read in path" << std::endl;
-//    qDebug() << "read in path " << path <<endl;
+    std::cout << "read in path" << std::endl;
     readin();
     std::cout << "read in done"<< std::endl;
-//    qDebug()<<"read in done"<< endl;
     setfea();
     std::cout << "setfea done" << std::endl;
-//    qDebug() << "setfea done" << endl;
+#ifdef TREECLUSTER
+    std::vector<float> tmpcenter;
+    for(int i=0;i<fea.cols;i++)
+        tmpcenter.push_back(fea.at<float>(0,i));
+    QDateTime time = QDateTime::currentDateTime();
+    QString folder = time.toString("yyyyMMddhhmm");
+    // not absolute path just a folder name
+    tc = new TreeCluster(folder,
+                         filelist.size(),
+                         0,
+                         tmpcenter);
+    std::vector<int> elements;
+    for(int i=0;i<filelist.size();i++)
+        elements.push_back(i);
+    pos = path.lastIndexOf('/');
+    QString pathC = path.remove(pos,path.length() - pos);
+    dir = QDir(pathC);
+//    std::cout << "kmeans before" << std::endl;
+    recursiveKmeans(tc,elements);
+    std::cout << "kmeans done" << std::endl;
+    initialTreeWidget();
+    std::cout << "tree widget done" << std::endl;
+
+    // factor of cate
+    factorOfCate(tc->numc);
+    setCateCenterLabel(f1,f2);
+
+    QPixmap tmp(labelw,labelh);
+    tmp.fill(Qt::white);
+    this->setPixmap(tmp);
+    cur = tc;
+    std::cout << "tc numc " << tc->numc << std::endl;
+    update();
+#else
+#ifdef NETMAP
     setKmeans(NUMCluster);
     std::cout << "kmeans done"<< std::endl;
-//    qDebug() << "kmeans done" << endl;
     initialClusters();
     std::cout << "clusters done " << std::endl;
-//    qDebug() << "clusters done " << endl;
-//    labelw = imw * cate * 5;
-//    labelh = imh * cate * 5;
     // factor of cate
-    double f0 = sqrt((double)NUMCluster);
+    double f0 = sqrt((double)filelist.size());
+    //    double f0 = sqrt((double)tc->num);
 
     f1 = f0,f2 = f0;
 
-    while(f1 * f2 < NUMCluster)
+    while(f1 * f2 < filelist.size())
         f1++;
 
-    // set label width and height
-#ifdef NETMAP
     labelw = imw * f1 * 5;
     labelh = imh * f2 * 5;
-#else
-    labelw = imw * f1;
-    labelh = imw * f2;
-#endif
+
     setCateCenterLabel(f1,f2);
     QPixmap tmp(labelw,labelh);
     tmp.fill(Qt::white);
     this->setPixmap(tmp);
     std::cout << "setCateCenterLabel done " << std::endl;
 
-#ifdef NETMAP
+    save();
+    update();
 
 #else
+    setKmeans(NUMCluster);
+    std::cout << "kmeans done"<< std::endl;
+    initialClusters();
+    std::cout << "clusters done " << std::endl;
+    // factor of cate
+    double f0 = sqrt((double)filelist.size());
+    //    double f0 = sqrt((double)tc->num);
+
+    f1 = f0,f2 = f0;
+
+    while(f1 * f2 < filelist.size())
+        f1++;
+
+    std::cout << "f1 " << f1 << std::endl;
+    std::cout << "f2 " << f2 << std::endl;
+
+    setCateCenterLabel(f1,f2);
+    qDebug()<<"setCateCenterLabel done"<<endl;
+    QPixmap tmp(labelw,labelh);
+    tmp.fill(Qt::white);
+    this->setPixmap(tmp);
     save();
-#endif
-//    qDebug()<<"setCateCenterLabel done"<<endl;
     update();
+
+#endif
+#endif
+
 }
 
 void ImgLabel::readin()
@@ -145,6 +233,7 @@ void ImgLabel::readin()
         cv::resize(tmpscImg,
                    tmpscImg,
                    cv::Size((int)(ratio * tmpscImg.cols + 0.5),(int)(ratio * tmpscImg.rows + 0.5)));
+        cv::cvtColor(tmpscImg,tmpscImg,CV_BGR2RGB);
         scImgs.push_back(tmpscImg);
 
     }
@@ -237,8 +326,8 @@ void ImgLabel::setCateCenterLabel(int f1,int f2)
     int hstep = imh;
 #endif
     QPointF ini(wstep / 2,hstep / 2);
-    for(int i=0;i<f1;i++)
-        for(int j=0;j<f2;j++)
+    for(int i=0;i<f2;i++)
+        for(int j=0;j<f1;j++)
         {
             QPointF tmp = ini + QPointF(j * wstep, i * hstep);
             cateCenterLabel.push_back(tmp);
@@ -311,6 +400,13 @@ void ImgLabel::save()
 
 }
 
+void ImgLabel::setCurItem()
+{
+    curItem = treeWidget->currentItem();
+    cur = icmap[curItem];
+    update();
+}
+
 QPointF ImgLabel::shift(int id, QPointF &p)
 {
     QPointF res;
@@ -329,7 +425,6 @@ QPointF ImgLabel::shift(QPointF &p)
 
 QImage ImgLabel::mat2Qimage(cv::Mat &mat)
 {
-    cv::cvtColor(mat,mat,CV_BGR2RGB);
     QImage img((uchar*)mat.data,
                mat.cols,mat.rows,
                mat.cols * mat.channels(),
@@ -356,6 +451,153 @@ QString ImgLabel::getFilename(QString path)
     // equals substring
     QString res = path.mid(pos + 1);
     return res;
+}
+
+int ImgLabel::getNUMCluster(int num)
+{
+    return (int)sqrt((double)num);
+}
+
+bool ImgLabel::allsame(std::vector<int> &elements)
+{
+    for(unsigned int i=0;i<elements.size();i++)
+    {
+        for(int j=1;j<fea.cols;j++)
+        {
+            if(fea.at<float>(elements[i],j)
+                != fea.at<float>(0,j))
+                return false;
+        }
+    }
+    return true;
+}
+
+void ImgLabel::copyfilesLink(TreeCluster *root,
+                             std::vector<int> &elements)
+{
+    for(unsigned int i=0;i<elements.size();i++)
+    {
+        QString rgbFile = getRgbPath(filelist.at(elements[i]));
+        QFile file(rgbFile);
+        QString filename = getFilename(filelist.at(elements[i]));
+        file.link(dir.path() + "/" + root->fname + "/" + filename + ".lnk");
+    }
+}
+
+void ImgLabel::initialTreeWidget()
+{
+    treeWidget = new QTreeWidget();
+    // filename numClusters numPics
+    treeWidget->setColumnCount(3);
+    QTreeWidgetItem *head = new QTreeWidgetItem((QTreeWidget*)0,(QStringList() << "cluster" << "numCluster" << "size"));
+    treeWidget->setHeaderItem(head);
+    QTreeWidgetItem *top = new QTreeWidgetItem((QStringList() << "root" << QString::number(tc->numc) << QString::number(tc->num) ));
+    treeWidget->addTopLevelItem(top);
+    TreeCluster *root = tc;
+    genTreeWidgetItem(top,root);
+    icmap.insert(std::pair<QTreeWidgetItem*, TreeCluster*>(top,root));
+}
+
+void ImgLabel::genTreeWidgetItem(QTreeWidgetItem *item,
+                                 TreeCluster *root)
+{
+    TreeCluster *p = root->child;
+    while(p)
+    {
+        QStringList tmp;
+        int pos = p->fname.lastIndexOf('/');
+        QString tmpss = p->fname;
+        tmpss = tmpss.mid(pos+1,p->fname.length() - pos);
+        tmp.append(tmpss);
+        tmp.append(QString::number(p->numc));
+        tmp.append(QString::number(p->num));
+        QTreeWidgetItem *child = new QTreeWidgetItem(tmp);
+        item->addChild(child);
+        genTreeWidgetItem(child,p);
+        icmap.insert(std::pair<QTreeWidgetItem*, TreeCluster*>(child,p));
+        p = p->next;
+    }
+}
+
+void ImgLabel::factorOfCate(int cate)
+{
+    double f0 = sqrt((double)cate);
+    f1 = f0, f2 = f0;
+    while(f1 * f2 < cate)
+        f1++;
+//    std::cout << "f1 " << f1 << "f2 " << f2 << endl;
+}
+
+void ImgLabel::setClusterFolder(TreeCluster *root)
+{
+    clusterFolder.clear();
+    TreeCluster *p = root->child;
+    while(p)
+    {
+        clusterFolder.push_back(p->fname);
+        p = p->next;
+    }
+}
+
+
+void ImgLabel::recursiveKmeans(TreeCluster *root,
+                               std::vector<int> &elements)
+{
+//    std::cout << "root " << root->fname.toStdString() << std::endl;
+    dir.mkdir(root->fname);
+    copyfilesLink(root,elements);
+    if(elements.size() < 4)
+        return;
+    // wheather all elements ara the same
+    if(allsame(elements))
+        return;
+
+    cv::Mat feature = cv::Mat(elements.size(),fea.cols,CV_32F);
+    cv::Mat tmplabel;
+    cv::Mat tmpcenters;
+
+    // load feature
+    for(unsigned int i=0;i<elements.size();i++)
+    {
+        for(int j=0;j<fea.cols;j++)
+            feature.at<float>(i,j) = fea.at<float>(elements[i],j);
+    }
+//    std::cout << "load feature done" << std::endl;
+    cv::kmeans(feature,root->numc,tmplabel,
+               cv::TermCriteria(CV_TERMCRIT_EPS+CV_TERMCRIT_ITER,10,1.0),
+               3,cv::KMEANS_PP_CENTERS,tmpcenters);
+
+//    std::cout << "kmeans done" << std::endl;
+
+    std::vector< std::vector<float> > tmpvecCenters;
+    std::vector< std::vector<int> > cElements;
+    // initial
+    for(int i=0;i<root->numc;i++)
+    {
+        std::vector<int> tmp;
+        cElements.push_back(tmp);
+    }
+    for(unsigned int i=0;i<elements.size();i++)
+        cElements[tmplabel.at<int>(i,0)].push_back(elements[i]);
+
+    for(int i=0;i<tmpcenters.rows;i++)
+    {
+        std::vector<float> tmp;
+        for(int j=0;j<tmpcenters.cols;j++)
+            tmp.push_back(tmpcenters.at<float>(i,j));
+        tmpvecCenters.push_back(tmp);
+    }
+
+    for(int i=0;i<root->numc;i++)
+    {
+        TreeCluster *child = new TreeCluster(root->fname + "/" + QString::number(i),
+                                               cElements[i].size(),
+                                               cElements[i][0],
+                                               tmpvecCenters[i]);
+//        std::cout << "child " << child->fname.toStdString() << std::endl;
+        root->appendChild(child);
+        recursiveKmeans(child,cElements[i]);
+    }
 }
 
 
