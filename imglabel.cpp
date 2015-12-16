@@ -109,16 +109,28 @@ void ImgLabel::paintEvent(QPaintEvent *e)
 
 void ImgLabel::open()
 {
+    //    QFileInfo fileInfo(fileName);
+//    QString path = fileInfo.absoluteDir().absolutePath().append("/");
+/*
     filelist = QFileDialog::getOpenFileNames(this,
                tr("Open Image"),".",
                tr("Image Files(*.png *.jpg *.jpeg *.bmp)"));
-
-    std::cout << "filelist size " << filelist.size() << std::endl;
+*/
+    QString filename = QFileDialog::getOpenFileName(this,
+                                                    tr("Open Matrix"),".",
+                                                    tr("matrix files(*.matrix)"));
 
     // set path
-    path = filelist.at(0);
-    int pos = path.lastIndexOf('/');
-    path = path.remove(pos,path.length() - pos);
+    int pos;
+    path = filename;
+    QFileInfo fileInfo(filename);
+    path = fileInfo.absoluteDir().absolutePath().append("/proj");
+
+    std::cout << "path " << path.toStdString() << std::endl;
+
+    readMatrixFile(filename);
+    std::cout << "filelist size " << filelist.size() << std::endl;
+
     std::cout << "read in path" << std::endl;
     readin();
     std::cout << "read in done"<< std::endl;
@@ -247,20 +259,54 @@ void ImgLabel::setfea()
     for(int i=0;i<filelist.size();i++)
     {
         std::vector<double> featmp;
-        double col,row;
-        double area;
-        getCentroid(i,col,row);
-        getSaliencyArea(i,area);
-        featmp.push_back(col);
-        featmp.push_back(row);
-        featmp.push_back(area);
+//        double col,row;
+//        double area;
+//        getCentroid(i,col,row);
+//        getSaliencyArea(i,area);
+//        featmp.push_back(col);
+//        featmp.push_back(row);
+//        featmp.push_back(area);
+        glm::vec4 dirz,diry;
+        double dis = 0.0;
+        getCameraDir(i,dirz,diry);
+        getCameraDis(i,dis);
+        featmp.push_back(dis);
+        // vector normalize
+        double norm2 = 0.0;
+        for(int j=0;j<3;j++)
+            norm2 += dirz[j] * dirz[j];
+        norm2 = sqrt(norm2);
+        for(int j=0;j<3;j++)
+            featmp.push_back(dirz[j]/norm2);
+
+        norm2 = 0.0;
+        for(int j=0;j<3;j++)
+            norm2 += diry[j] * diry[j];
+        norm2 = sqrt(norm2);
+        for(int j=0;j<3;j++)
+            featmp.push_back(diry[j]/norm2);
         feavec.push_back(featmp);
     }
+    // normalize
+    // dis
+    double max = 0.0;
+    double min = 0.0;
+    for(int i=0;i<feavec.size();i++)
+    {
+        max = max > feavec[i][0] ? max : feavec[i][0];
+        min = min < feavec[i][0] ? min : feavec[i][0];
+    }
+    for(int i=0;i<feavec.size();i++)
+        feavec[i][0] = (feavec[i][0] - min) / (max - min);
+
     // set fea
     fea = cv::Mat(feavec.size(),feavec[0].size(),CV_32F);
     for(int i=0;i<fea.rows;i++)
         for(int j=0;j<fea.cols;j++)
             fea.at<float>(i,j) = feavec[i][j];
+
+    std::cout << "fea size " << fea.rows << " " << fea.cols << std::endl;
+
 }
 
 void ImgLabel::getCentroid(int index,double &col,double &row)
@@ -305,6 +351,24 @@ void ImgLabel::getSaliencyArea(int index, double &area)
                 area ++;
     area /= imgs[index].rows;
     area /= imgs[index].cols;
+}
+
+void ImgLabel::getCameraDis(int index, double &dis)
+{
+    glm::vec4 campos = glm::vec4(0.f,0.f,0.f,1.0f);
+    campos = glm::inverse(p_mv[index]) * campos;
+    dis = 0.0;
+    for(int i=0;i<3;i++)
+        dis += campos[i]*campos[i];
+    dis = sqrt(dis);
+}
+
+void ImgLabel::getCameraDir(int index, glm::vec4 &dirZ, glm::vec4 &dirY)
+{
+    glm::vec4 tmpdirz = glm::vec4(0.f,0.f,1.0f,0.f);
+    dirZ = glm::inverse(p_mv[index]) * tmpdirz;
+    glm::vec4 tmpdiry = glm::vec4(0.f,1.0f,0.f,0.f);
+    dirY = glm::inverse(p_mv[index]) * tmpdiry;
 }
 
 void ImgLabel::setKmeans(int k)
@@ -538,6 +602,41 @@ void ImgLabel::setClusterFolder(TreeCluster *root)
     {
         clusterFolder.push_back(p->fname);
         p = p->next;
+    }
+}
+
+void ImgLabel::readMatrixFile(QString file)
+{
+    filelist.clear();
+    std::ifstream in(file.toStdString().c_str());
+    std::string ss;
+    float tmp;
+    while(in >> ss)
+    {
+        QString tmpPath = path + "/";
+        QString filename = QString(ss.c_str());
+        filename = QDir::cleanPath(tmpPath.append(QString(filename)));
+//        std::cout << "filename " << filename.toStdString() << std::endl;
+        filelist.append(filename);
+        glm::mat4 mv,proj;
+        std::cout << "mv ";
+        for(int i=0;i<16;i++)
+        {
+            in >> tmp;
+            mv[i%4][i/4] = tmp;
+            std::cout << tmp << " ";
+        }
+        std::cout << std::endl;
+        std::cout << "proj ";
+        p_mv.push_back(mv);
+        for(int i=0;i<16;i++)
+        {
+            in >> tmp;
+            proj[i%4][i/4] = tmp;
+            std::cout << tmp << " ";
+        }
+        std::cout << std::endl;
+        p_proj.push_back(proj);
     }
 }
 

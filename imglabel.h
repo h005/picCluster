@@ -23,6 +23,10 @@
 #include "mode.h"
 #include "treecluster.h"
 #include <map>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <fstream>
 
 class ImgLabel : public QLabel
 {
@@ -49,6 +53,10 @@ private:
     void getCentroid(int index,double &col,double &row);
     // get saliency area
     void getSaliencyArea(int index,double &area);
+    // get camera distance
+    void getCameraDis(int index,double &dis);
+    // get camera direction
+    void getCameraDir(int index,glm::vec4 &dirZ, glm::vec4 &dirY);
 
     void setKmeans(int k);
 
@@ -91,9 +99,17 @@ private:
     void factorOfCate(int cate);
 
     void setClusterFolder(TreeCluster *root);
+
+    // set filelist
+    // set
+    void readMatrixFile(QString file);
+
 public:
     QTreeWidget *treeWidget;
 private:
+
+    std::vector<glm::mat4> p_mv;
+    std::vector<glm::mat4> p_proj;
 
     QImage image;
     QString rgbPath;
