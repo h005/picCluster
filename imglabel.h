@@ -43,6 +43,8 @@ public:
     void open();
 
     void save();
+
+    void load();
 public slots:
     void setCurItem();
 
@@ -83,6 +85,11 @@ private:
     void recursiveKmeans(TreeCluster *root,
                          std::vector<int> &elements);
 
+    void recursiveLoad(TreeCluster *root,
+                       QString path,
+                       QStringList folderList,
+                       QStringList fnameList);
+
     // check wheather all the elemnets are the same
     bool allsame(std::vector<int> &elements);
 
@@ -105,6 +112,10 @@ private:
     // set filelist
     // set
     void readMatrixFile(QString file);
+
+    void getFileFolderList(QString path,
+                           QStringList &folder,
+                           QStringList &file);
 
 public:
     QTreeWidget *treeWidget;
@@ -141,6 +152,8 @@ private:
     // item cluster map
     std::map<QTreeWidgetItem* , TreeCluster* > icmap;
     QDir dir;
+    // pic index map
+    std::map<QString , int > pimap;
 };
 
 #endif // IMGLABEL_H

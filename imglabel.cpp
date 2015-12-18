@@ -27,6 +27,10 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
 #ifdef TREECLUSTER
     if(cluster >= cur->numc)
         return;
+    if(pos.x() > labelw)
+        return;
+    if(pos.y() > labelh)
+        return;
     QString tmpPath;
     if(cur->numc > 1)
         tmpPath = path + '/' + cur->get(cluster)->fname;
@@ -493,6 +497,125 @@ void ImgLabel::save()
 
 }
 
+void ImgLabel::load()
+{
+    QFileDialog *openFilePath = new QFileDialog(this,"directory","file");
+    openFilePath->setFileMode(QFileDialog::DirectoryOnly);
+    if(openFilePath->exec() == QDialog::Accepted)
+    {
+//        std::cout << openFilePath->directory().absolutePath().toStdString() << std::endl;
+        // path = E:\ViewPoint\kxm\201511231826\201512151654_19
+        path = openFilePath->directory().absolutePath();
+        // rgbPath = E:\ViewPoint\kxm
+        rgbPath = path;
+        int pos = rgbPath.lastIndexOf('/');
+        // folder = 201512151654_19
+        QString folder = rgbPath.mid(pos + 1,folder.length() - pos - 1);
+        std::cout << folder.toStdString() << std::endl;
+        rgbPath = rgbPath.remove(pos,rgbPath.length() - pos);
+        pos = rgbPath.lastIndexOf('/');
+        rgbPath = rgbPath.remove(pos,rgbPath.length() - pos);
+
+        // set path as E:\ViewPoint\kxm\201511231826
+        pos = path.lastIndexOf('/');
+        path = path.remove(pos,path.length() - pos);
+        std::cout << "path " << path.toStdString() << std::endl;
+        QDir *dir = new QDir(path + "/" + folder);
+
+        int pos_ = folder.lastIndexOf('_');
+        folder = folder.remove(pos_,folder.length() - pos_);
+
+        /*
+         * folders
+         * 0_3
+         * 1_2
+         * 2_5
+         * 3_3
+         * ...
+         * ...
+         */
+        QStringList folders = dir->entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+        std::cout << "folders " << std::endl;
+        for(int i=0;i<folders.size();i++)
+            std::cout << "folder "<< i << " " << folders.at(i).toStdString() << std::endl;
+
+        QStringList filters;
+        filters << "*.lnk";
+        /*
+         * filelist
+         *  img0000.jpg.lnk
+         *  img0001.jpg.lnk
+         *  img0002.jpg.lnk
+         */
+        dir->setNameFilters(filters);
+
+        QStringList filelist = dir->entryList();
+
+        for(int i=0;i < filelist.size();i++)
+            std::cout << filelist.at(i).toStdString() << std::endl;
+
+        std::vector<int> elements;
+        for(int i=0;i<filelist.size();i++)
+            elements.push_back(i);
+        std::vector<float> tmpcenter;
+
+        std::cout << "tree cluster initial "<< std::endl;
+
+        tc = new TreeCluster(folder,
+                             filelist.size(),
+                             0,
+                             tmpcenter,
+                             elements);
+
+        //    icmap.insert(std::pair<QTreeWidgetItem*, TreeCluster*>(top,root));
+        for(int i=0;i<filelist.size();i++)
+        {
+            pimap.insert(std::pair<QString, int>(filelist.at(i),i));
+            // read in file and resize
+            QString file = filelist.at(i);
+            int posdot = file.lastIndexOf('.');
+            file = file.remove(posdot,file.length() - posdot);
+            file = rgbPath + "/" + file;
+            cv::Mat tmpscImg = cv::imread(file.toStdString().c_str());
+
+            double ratiow,ratioh;
+            ratiow = (double)imw / tmpscImg.cols;
+            ratioh = (double)imh / tmpscImg.rows;
+            double ratio = ratiow > ratioh ? ratioh : ratiow;
+            cv::resize(tmpscImg,
+                       tmpscImg,
+                       cv::Size((int)(ratio * tmpscImg.cols + 0.5),(int)(ratio * tmpscImg.rows + 0.5)));
+            cv::cvtColor(tmpscImg,tmpscImg,CV_BGR2RGB);
+            scImgs.push_back(tmpscImg);
+        }
+
+        std::cout << "read in done " << std::endl;
+
+        recursiveLoad(tc,
+                      path + "/" + tc->fname,
+                      folders,
+                      filelist);
+
+        initialTreeWidget();
+        std::cout << "tree widget done" << std::endl;
+
+        // factor of cate
+        factorOfCate(tc->numc);
+        setCateCenterLabel(f1,f2);
+        labelw = f1 * imw;
+        labelh = f2 * imh;
+        QPixmap tmp(labelw,labelh);
+        tmp.fill(Qt::white);
+        this->setPixmap(tmp);
+        cur = tc;
+        std::cout << "tc numc " << tc->numc << std::endl;
+        update();
+    }
+    delete openFilePath;
+
+}
+
 void ImgLabel::setCurItem()
 {
     curItem = treeWidget->currentItem();
@@ -618,7 +741,7 @@ void ImgLabel::factorOfCate(int cate)
     f1 = f0, f2 = f0;
     while(f1 * f2 < cate)
         f1++;
-//    std::cout << "f1 " << f1 << "f2 " << f2 << endl;
+    std::cout << "f1 " << f1 << " f2 " << f2 << endl;
 }
 
 void ImgLabel::setClusterFolder(TreeCluster *root)
@@ -665,6 +788,39 @@ void ImgLabel::readMatrixFile(QString file)
         std::cout << std::endl;
         p_proj.push_back(proj);
     }
+}
+
+void ImgLabel::getFileFolderList(QString path,
+                                 QStringList &folders,
+                                 QStringList &filelist)
+{
+    QDir *dir = new QDir(path);
+    /*
+     * folders
+     * 0_3
+     * 1_2
+     * 2_5
+     * 3_3
+     * ...
+     * ...
+     */
+    folders = dir->entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    std::cout << "folders " << std::endl;
+    for(int i=0;i<folders.size();i++)
+        std::cout << "folder "<< i << " " << folders.at(i).toStdString() << std::endl;
+
+    QStringList filters;
+    filters << "*.lnk";
+    /*
+     * filelist
+     *  img0000.jpg.lnk
+     *  img0001.jpg.lnk
+     *  img0002.jpg.lnk
+     */
+    dir->setNameFilters(filters);
+
+    filelist = dir->entryList();
 }
 
 
@@ -742,6 +898,42 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
         recursiveKmeans(child,cElements[i]);
     }
 }
+
+void ImgLabel::recursiveLoad(TreeCluster *root,
+                             QString path,
+                             QStringList folderList,
+                             QStringList fnameList)
+{
+    if(!folderList.size())
+        return;
+    for(int i=0;i<folderList.size();i++)
+    {
+//        QDir *dir = QDir(path + "/" + folderList.at(i));
+        QStringList folders;
+        QStringList files;
+        QString tmpPath = path + "/" + folderList.at(i);
+//        folder = folder + "/" + folderList.at(i);
+        QString tmp = folderList.at(i);
+        int pos = tmp.lastIndexOf('_');
+        tmp = tmp.remove(pos,tmp.length() - pos);
+        std::cout << "path " << tmpPath.toStdString() << std::endl;
+        getFileFolderList(tmpPath,
+                          folders,
+                          files);
+        std::vector<float> tmpvec;
+        std::vector<int> elements;
+        for(int i=0;i<files.size();i++)
+            elements.push_back(pimap[files.at(i)]);
+        TreeCluster *child = new TreeCluster(root->fname + "/" + tmp,
+                                             files.size(),
+                                             pimap[files.at(0)],
+                                             tmpvec,
+                                             elements);
+        root->appendChild(child);
+        recursiveLoad(child,tmpPath,folders,files);
+    }
+}
+
 
 
 

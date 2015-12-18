@@ -12,7 +12,7 @@ public:
     TreeCluster();
 
     TreeCluster(QString fname,
-                int numc,
+                int num,
                 int picID,
                 std::vector<float> center,
                 std::vector<int> imgs);

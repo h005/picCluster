@@ -13,6 +13,7 @@ MainWindow::MainWindow(QWidget *parent) :
 //    ui->treeScroll->setWidget(treeWidget);
     ui->open->setShortcut(Qt::Key_O);
     ui->save->setShortcut(Qt::Key_S);
+    ui->load->setShortcut(Qt::Key_L);
 }
 
 MainWindow::~MainWindow()
@@ -32,4 +33,13 @@ void MainWindow::on_open_clicked()
 void MainWindow::on_save_clicked()
 {
 //    label->save();
+}
+
+void MainWindow::on_load_clicked()
+{
+    label->load();
+    treeWidget = label->treeWidget;
+    ui->treeScroll->setWidget(treeWidget);
+    connect(treeWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
+                               label,SLOT(setCurItem()));
 }
