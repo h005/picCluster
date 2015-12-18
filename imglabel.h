@@ -27,6 +27,8 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fstream>
+#include "kmeans.h"
+#include "kmedoids.h"
 
 class ImgLabel : public QLabel
 {
@@ -107,6 +109,10 @@ private:
 public:
     QTreeWidget *treeWidget;
 private:
+
+//    Kmeans *kmeans;
+
+    Kmedoids *kmedoids;
 
     std::vector<glm::mat4> p_mv;
     std::vector<glm::mat4> p_proj;

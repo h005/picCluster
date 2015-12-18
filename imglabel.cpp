@@ -10,6 +10,8 @@ ImgLabel::ImgLabel(QTreeWidget *treeWidget, QWidget *parent):
     NUMCluster = 2;
     tc = new TreeCluster();
     curItem = NULL;
+//    kmeans = new Kmeans();
+
 }
 
 void ImgLabel::mousePressEvent(QMouseEvent *e)
@@ -77,11 +79,17 @@ void ImgLabel::paintEvent(QPaintEvent *e)
     if(cateCenterLabel.size())
     {
 #ifdef TREECLUSTER
+        std::cout << "paintEvent initial " << std::endl;
         // TreeCluster 中如果只有一个元素，那么这个TreeCluster则没有child
         // so it is
+        std::cout << "cur numc " << cur->numc << std::endl;
+        std::cout << "cur num " << cur->num << std::endl;
         if(cur->numc != 1)
             for(int i=0; i < cur->numc; i++)
             {
+//                std::cout << "cur num " << i << "cur pic id " << cur->get(i)->picID << std::endl;
+                if(!cur->get(i))
+                    return;
                 QImage tmp = mat2Qimage(scImgs[cur->get(i)->picID]);
                 painter->drawImage(shift(cateCenterLabel[i]),tmp);
             }
@@ -89,11 +97,13 @@ void ImgLabel::paintEvent(QPaintEvent *e)
         {
             for(int i=0; i < cur->num; i++)
             {
+//                std::cout << "cur num " << i << "cur pic id " << cur->imgs[i] << std::endl;
                 QImage tmp = mat2Qimage(scImgs[cur->imgs[i]]);
                 painter->drawImage(shift(cateCenterLabel[i]),tmp);
             }
-
         }
+
+        std::cout << "paintEvent done " << std::endl;
 #else
         for(int i=0; i < NUMCluster; i++)
         {
@@ -139,7 +149,7 @@ void ImgLabel::open()
 #ifdef TREECLUSTER
     std::vector<float> tmpcenter;
     for(int i=0;i<fea.cols;i++)
-        tmpcenter.push_back(fea.at<float>(0,i));
+        tmpcenter.push_back(fea.at<double>(0,i));
     QDateTime time = QDateTime::currentDateTime();
     QString folder = time.toString("yyyyMMddhhmm");
     std::vector<int> elements;
@@ -154,7 +164,9 @@ void ImgLabel::open()
     pos = path.lastIndexOf('/');
     QString pathC = path.remove(pos,path.length() - pos);
     dir = QDir(pathC);
-//    std::cout << "kmeans before" << std::endl;
+    std::cout << "kmeans before" << std::endl;
+    kmedoids = new Kmedoids(fea);
+    std::cout << "kmedoids initial done" << std::endl;
     recursiveKmeans(tc,elements);
     std::cout << "kmeans done" << std::endl;
     initialTreeWidget();
@@ -256,6 +268,8 @@ void ImgLabel::readin()
 void ImgLabel::setfea()
 {
     std::vector< std::vector<double> > feavec;
+
+/*  camera distance and direction
     for(int i=0;i<filelist.size();i++)
     {
         std::vector<double> featmp;
@@ -291,19 +305,32 @@ void ImgLabel::setfea()
     // dis
     double max = 0.0;
     double min = 0.0;
-    for(int i=0;i<feavec.size();i++)
+    for(unsigned int i=0;i<feavec.size();i++)
     {
         max = max > feavec[i][0] ? max : feavec[i][0];
         min = min < feavec[i][0] ? min : feavec[i][0];
     }
-    for(int i=0;i<feavec.size();i++)
+    for(unsigned int i=0;i<feavec.size();i++)
         feavec[i][0] = (feavec[i][0] - min) / (max - min);
+*/
+
+    // use mv matrix as feature
+    for(unsigned int i = 0; i < filelist.size(); i++)
+    {
+        std::vector<double> featmp;
+        for(int j=0;j<16;j++)
+            featmp.push_back(p_mv[i][j/4][j%4]);
+        feavec.push_back(featmp);
+    }
 
     // set fea
-    fea = cv::Mat(feavec.size(),feavec[0].size(),CV_32F);
+// for not mv matrix use float is enough
+//    fea = cv::Mat(feavec.size(),feavec[0].size(),CV_64F);
+// for mv matrix
+    fea = cv::Mat(feavec.size(),feavec[0].size(),CV_64F);
     for(int i=0;i<fea.rows;i++)
         for(int j=0;j<fea.cols;j++)
-            fea.at<float>(i,j) = feavec[i][j];
+            fea.at<double>(i,j) = feavec[i][j];
 
     std::cout << "fea size " << fea.rows << " " << fea.cols << std::endl;
 
@@ -411,7 +438,7 @@ void ImgLabel::initialClusters()
     {
         std::vector<float> tmpcenter;
         for(int j=0; j < fea.cols ; j++)
-            tmpcenter.push_back(centers.at<float>(i,j));
+            tmpcenter.push_back(centers.at<double>(i,j));
 #ifdef NETMAP
         Cluster tmp(fea,
                     tmpcenter,
@@ -530,8 +557,8 @@ bool ImgLabel::allsame(std::vector<int> &elements)
     {
         for(int j=1;j<fea.cols;j++)
         {
-            if(fea.at<float>(elements[i],j)
-                != fea.at<float>(0,j))
+            if(fea.at<double>(elements[i],j)
+                != fea.at<double>(0,j))
                 return false;
         }
     }
@@ -644,7 +671,7 @@ void ImgLabel::readMatrixFile(QString file)
 void ImgLabel::recursiveKmeans(TreeCluster *root,
                                std::vector<int> &elements)
 {
-//    std::cout << "root " << root->fname.toStdString() << std::endl;
+    std::cout << "root " << root->fname.toStdString() << std::endl;
     dir.mkdir(root->fname);
     copyfilesLink(root,elements);
     if(elements.size() < 4)
@@ -653,7 +680,7 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
     if(allsame(elements))
         return;
 
-    cv::Mat feature = cv::Mat(elements.size(),fea.cols,CV_32F);
+    cv::Mat feature = cv::Mat(elements.size(),fea.cols,CV_64F);
     cv::Mat tmplabel;
     cv::Mat tmpcenters;
 
@@ -661,14 +688,28 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
     for(unsigned int i=0;i<elements.size();i++)
     {
         for(int j=0;j<fea.cols;j++)
-            feature.at<float>(i,j) = fea.at<float>(elements[i],j);
+            feature.at<double>(i,j) = fea.at<double>(elements[i],j);
     }
 //    std::cout << "load feature done" << std::endl;
-    cv::kmeans(feature,root->numc,tmplabel,
-               cv::TermCriteria(CV_TERMCRIT_EPS+CV_TERMCRIT_ITER,10,1.0),
-               3,cv::KMEANS_PP_CENTERS,tmpcenters);
+//    cv::kmeans(feature,root->numc,tmplabel,
+//               cv::TermCriteria(CV_TERMCRIT_EPS+CV_TERMCRIT_ITER,10,1.0),
+//               3,cv::KMEANS_PP_CENTERS,tmpcenters);
 
+    // use mv matrix as feature
+    std::cout << "call kmeans " << std::endl;
+//    std::cout << "feature " << feature.rows << " numc " << root->numc << std::endl;
+    kmedoids->kmedoids(elements,root->numc,tmplabel,tmpcenters);
+    //    kmeans->kmeans(feature,root->numc,tmplabel,tmpcenters);
+    std::cout << "kmeans recursive debug ..." << std::endl;
 //    std::cout << "kmeans done" << std::endl;
+
+    std::cout << "kmeans label"<< std::endl;
+    for(int j = 0 ; j < tmplabel.rows; j ++)
+    {
+        std::cout << tmplabel.at<int>(j,0) << " ";
+    }
+    std::cout << std::endl;
+//    return;
 
     std::vector< std::vector<float> > tmpvecCenters;
     std::vector< std::vector<int> > cElements;
@@ -685,7 +726,7 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
     {
         std::vector<float> tmp;
         for(int j=0;j<tmpcenters.cols;j++)
-            tmp.push_back(tmpcenters.at<float>(i,j));
+            tmp.push_back(tmpcenters.at<double>(i,j));
         tmpvecCenters.push_back(tmp);
     }
 
