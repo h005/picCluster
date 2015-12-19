@@ -179,7 +179,8 @@ void ImgLabel::open()
     // factor of cate
     factorOfCate(tc->numc);
     setCateCenterLabel(f1,f2);
-
+    labelw = f1 * imw;
+    labelh = f2 * imh;
     QPixmap tmp(labelw,labelh);
     tmp.fill(Qt::white);
     this->setPixmap(tmp);
@@ -503,15 +504,17 @@ void ImgLabel::load()
     openFilePath->setFileMode(QFileDialog::DirectoryOnly);
     if(openFilePath->exec() == QDialog::Accepted)
     {
-//        std::cout << openFilePath->directory().absolutePath().toStdString() << std::endl;
+        std::cout << "openFilePath " << openFilePath->directory().absolutePath().toStdString() << std::endl;
         // path = E:\ViewPoint\kxm\201511231826\201512151654_19
         path = openFilePath->directory().absolutePath();
-        // rgbPath = E:\ViewPoint\kxm
+//         rgbPath = E:\ViewPoint\kxm
         rgbPath = path;
+        std::cout << "rgbPath " << rgbPath.toStdString() << std::endl;
         int pos = rgbPath.lastIndexOf('/');
+//        std::cout << "pos " << pos << " folder length " << rgbPath.length() << std::endl;
         // folder = 201512151654_19
-        QString folder = rgbPath.mid(pos + 1,folder.length() - pos - 1);
-        std::cout << folder.toStdString() << std::endl;
+        QString folder = rgbPath.mid(pos + 1,rgbPath.length() - pos - 1);
+        std::cout << "folder " << folder.toStdString() << std::endl;
         rgbPath = rgbPath.remove(pos,rgbPath.length() - pos);
         pos = rgbPath.lastIndexOf('/');
         rgbPath = rgbPath.remove(pos,rgbPath.length() - pos);
@@ -854,7 +857,7 @@ void ImgLabel::recursiveKmeans(TreeCluster *root,
     // use mv matrix as feature
     std::cout << "call kmeans " << std::endl;
 //    std::cout << "feature " << feature.rows << " numc " << root->numc << std::endl;
-    kmedoids->kmedoids(elements,root->numc,tmplabel,tmpcenters);
+    kmedoids->kmedoidsPAM(elements,root->numc,tmplabel,tmpcenters);
     //    kmeans->kmeans(feature,root->numc,tmplabel,tmpcenters);
     std::cout << "kmeans recursive debug ..." << std::endl;
 //    std::cout << "kmeans done" << std::endl;
