@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -14,6 +14,10 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->open->setShortcut(Qt::Key_O);
     ui->save->setShortcut(Qt::Key_S);
     ui->load->setShortcut(Qt::Key_L);
+    modeMap.insert(std::pair<QString,int>("KmedoidsPAM-mvMatrix",0));
+    modeMap.insert(std::pair<QString,int>("KmedoidsZwz-mvMatrix",1));
+    modeMap.insert(std::pair<QString,int>("kmeans-centroid_SaliencyArea",2));
+    modeMap.insert(std::pair<QString,int>("kmeans-cameraDistanceDirection",3));
 }
 
 MainWindow::~MainWindow()
@@ -23,7 +27,9 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_open_clicked()
 {
-    label->open();
+    QString mode = ui->comboBox->currentText();
+    std::cout << mode.toStdString() << std::endl;
+    label->open(mode,modeMap[mode]);
     treeWidget = label->treeWidget;
     ui->treeScroll->setWidget(treeWidget);
     connect(treeWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),

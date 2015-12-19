@@ -1,8 +1,11 @@
-#ifndef MAINWINDOW_H
+﻿#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
 #include <QTreeWidget>
+#include <iostream>
+#include <map>
+#include <QString>
 #include "imglabel.h"
 
 namespace Ui {
@@ -28,6 +31,7 @@ private:
     Ui::MainWindow *ui;
     ImgLabel *label;
     QTreeWidget *treeWidget;
+    std::map<QString,int> modeMap;
 };
 
 #endif // MAINWINDOW_H

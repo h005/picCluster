@@ -40,7 +40,7 @@ public:
     void mouseReleaseEvnet(QMouseEvent *e);
     void paintEvent(QPaintEvent *e);
 
-    void open();
+    void open(QString modeString,int mode);
 
     void save();
 
@@ -154,6 +154,8 @@ private:
     QDir dir;
     // pic index map
     std::map<QString , int > pimap;
+//    QString modeString;
+    int mode;
 };
 
 #endif // IMGLABEL_H
