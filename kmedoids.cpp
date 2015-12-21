@@ -5,6 +5,11 @@ Kmedoids::Kmedoids()
 
 }
 
+Kmedoids::~Kmedoids()
+{
+
+}
+
 Kmedoids::Kmedoids(cv::Mat &fea)
 {
     assert(mvDis_matlabInitialize());

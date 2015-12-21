@@ -27,4 +27,6 @@ Choose模式
 	这种模式下可以对图像进行删除（Delete），撤销（Ctrl+Z）
 	save（S）会将结果保存下来
 
+save(S)会将筛选下来的结果以.matrix文件的形式保存下来
+	
 	

@@ -40,6 +40,7 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 MainWindow::~MainWindow()
 {
     delete ui;
+    delete label;
 }
 
 void MainWindow::on_open_clicked()

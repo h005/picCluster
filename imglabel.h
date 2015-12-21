@@ -55,6 +55,8 @@ public:
 
     bool getViewMode();
 
+    ~ImgLabel();
+
 signals:
     void vfModeChanged(bool flag);
 
@@ -150,6 +152,7 @@ private:
     QImage image;
     QString rgbPath;
     QString savePath;
+    QString saveFolder;
     int NUMCluster;
     QString path;
     QStringList filelist;
@@ -171,6 +174,8 @@ private:
     QTreeWidgetItem *curItem;
     // item cluster map
     std::map<QTreeWidgetItem* , TreeCluster* > icmap;
+    // filename and index map
+    std::map<QString,int> fimap;
     QDir dir;
     // pic index map
     std::map<QString , int > pimap;

@@ -87,7 +87,7 @@ void ImgLabel::keyPressEvent(QKeyEvent *e)
             }
             vcm.deletePic(delId);
             // 删掉这个图片之后，当前选择的图片ID可能会超过当前这个类中图片的个数
-            if(vcm.choosed <= cur->num)
+            if(vcm.choosed >= cur->num)
                 vcm.choosed--;
             setLabelSize(cur->num);
 //            std::cout << "delete id     ..... " << cur
@@ -230,6 +230,7 @@ void ImgLabel::open(QString modeString,int mode)
     path = filename;
     QFileInfo fileInfo(filename);
     // path D:/viewpoint/kmx/201511282241/proj
+    savePath = fileInfo.absoluteDir().absolutePath();
     path = fileInfo.absoluteDir().absolutePath().append("/proj");
 
     std::cout << "path " << path.toStdString() << std::endl;
@@ -263,8 +264,7 @@ void ImgLabel::open(QString modeString,int mode)
     QString pathC = path.remove(pos,path.length() - pos);
     dir = QDir(pathC);
     // save path is D:/viewpoint/kmx/201511282241/tc.fname
-    savePath = pathC + "/" + tc->fname;
-
+    saveFolder = tc->fname;
     std::cout << "kmeans before" << std::endl;
     switch(mode)
     {
@@ -642,12 +642,12 @@ void ImgLabel::save()
 
 void ImgLabel::savePics()
 {
-    QDateTime time = QDateTime::currentDateTime();
-    QString folder = time.toString("yyyyMMddhhmm");
+//    QDateTime time = QDateTime::currentDateTime();
+//    QString folder = time.toString("yyyyMMddhhmm");
     std::cout << "save pic filename path " << savePath.toStdString() << std::endl;
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save File"),
-                               savePath + "/" + folder + ".pic",
-                               tr("pic (*.pic)"));
+                               savePath + "/" + saveFolder + ".matrix",
+                               tr("matrix (*.matrix)"));
     std::cout << "save pic filename " << fileName.toStdString() << std::endl;
     if(fileName == NULL)
     {
@@ -659,13 +659,43 @@ void ImgLabel::savePics()
         for(int i=0;i<tc->imgs.size();i++)
         {
             QString tmpfile = filelist.at(tc->imgs[i]);
+            // remove path
+            QFileInfo fileinfo(tmpfile);
+            tmpfile = fileinfo.fileName();
             // link file
             if(tmpfile.at(tmpfile.length() - 1) == 'k')
             {
                 int pos = tmpfile.lastIndexOf('.');
                 tmpfile = tmpfile.remove(pos,tmpfile.length() - pos);
             }
-            opic << tmpfile.toStdString() << std::endl;
+            int index = fimap[tmpfile];
+            if(index < 0)
+            {
+                std::cerr << "index error................................" << std::endl;
+            }
+            else
+            {
+                // output filename
+                opic << tmpfile.toStdString() << std::endl;
+                // mv matrix
+                for(int j=0;j<4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        opic << p_mv[index][k][j] <<" ";
+                    }
+                    opic << std::endl;
+                }
+                // proj matrix
+                for(int j=0;j<4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        opic << p_proj[index][k][j] << " ";
+                    }
+                    opic << std::endl;
+                }
+            }
         }
         opic.close();
     }
@@ -680,7 +710,6 @@ void ImgLabel::load()
         std::cout << "openFilePath " << openFilePath->directory().absolutePath().toStdString() << std::endl;
         // path = E:\ViewPoint\kxm\201511231826\201512151654_19
         path = openFilePath->directory().absolutePath();
-        savePath = path;
 //         rgbPath = E:\ViewPoint\kxm
         rgbPath = path;
         std::cout << "rgbPath " << rgbPath.toStdString() << std::endl;
@@ -688,6 +717,7 @@ void ImgLabel::load()
 //        std::cout << "pos " << pos << " folder length " << rgbPath.length() << std::endl;
         // folder = 201512151654_19
         QString folder = rgbPath.mid(pos + 1,rgbPath.length() - pos - 1);
+        saveFolder =  folder;
         std::cout << "folder " << folder.toStdString() << std::endl;
         rgbPath = rgbPath.remove(pos,rgbPath.length() - pos);
         pos = rgbPath.lastIndexOf('/');
@@ -696,7 +726,22 @@ void ImgLabel::load()
         // set path as E:\ViewPoint\kxm\201511231826
         pos = path.lastIndexOf('/');
         path = path.remove(pos,path.length() - pos);
+        // path E:\ViewPoint\kxm\201511231826
+        savePath = path;
+        QString matrixfile = path;
+        pos = matrixfile.lastIndexOf('/');
+        // matrixfile E:\ViewPoint\kxm
+        matrixfile = matrixfile.remove(pos,matrixfile.length() - pos);
+        pos = matrixfile.lastIndexOf('/');
+        // fname kxm or bigben
+        // the matrix file' prefix
+        QString fname = matrixfile.mid(pos+1);
+        matrixfile = path + "/" + fname + ".matrix";
+
+        std::cout << "load ... matrixfile ......   " << matrixfile.toStdString() << std::endl;
+        readMatrixFile(matrixfile);
         std::cout << "path " << path.toStdString() << std::endl;
+        std::cout << "path " << (path + "/" + folder).toStdString() << std::endl;
         QDir *dir = new QDir(path + "/" + folder);
 
         int pos_ = folder.lastIndexOf('_');
@@ -731,6 +776,7 @@ void ImgLabel::load()
 
         for(int i=0;i < filelist.size();i++)
             std::cout << filelist.at(i).toStdString() << std::endl;
+        // renew the filelist
         this->filelist = filelist;
         std::vector<int> elements;
         for(int i=0;i<filelist.size();i++)
@@ -806,6 +852,21 @@ void ImgLabel::setViewMode(bool flagViewMode)
 bool ImgLabel::getViewMode()
 {
     return vcm.f_vcm;
+}
+
+ImgLabel::~ImgLabel()
+{
+//    std::map<QTreeWidgetItem*, TreeCluster*>::iterator it = icmap.begin();
+//    for(;it != icmap.end();it++)
+//    {
+//        QTreeWidgetItem* tmpItem = it->first;
+//        delete tmpItem;
+//        TreeCluster* tmpTree = it->second;
+//        delete tmpTree;
+//    }
+//    delete kmedoids;
+//    delete treeWidget;
+
 }
 
 void ImgLabel::setCurItem()
@@ -952,6 +1013,7 @@ void ImgLabel::setClusterFolder(TreeCluster *root)
 
 void ImgLabel::readMatrixFile(QString file)
 {
+    fimap.clear();
     filelist.clear();
     std::ifstream in(file.toStdString().c_str());
     std::string ss;
@@ -960,6 +1022,9 @@ void ImgLabel::readMatrixFile(QString file)
     {
         QString tmpPath = path + "/";
         QString filename = QString(ss.c_str());
+        filename = QDir::cleanPath(filename);
+        std::cout << "filename " << filename.toStdString() << std::endl;
+        fimap.insert(std::pair<QString,int>(filename,filelist.size()));
         filename = QDir::cleanPath(tmpPath.append(QString(filename)));
 //        std::cout << "filename " << filename.toStdString() << std::endl;
         filelist.append(filename);

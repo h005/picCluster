@@ -22,6 +22,8 @@ class Kmedoids
 public:
     Kmedoids();
 
+    ~Kmedoids();
+
     Kmedoids(cv::Mat &fea);
 
     void kmedoids(std::vector<int> &elements,
