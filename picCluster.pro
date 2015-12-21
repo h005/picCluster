@@ -19,7 +19,8 @@ SOURCES += main.cpp\
     cluster.cpp \
     treecluster.cpp \
     kmeans.cpp \
-    kmedoids.cpp
+    kmedoids.cpp \
+    vcm.cpp
 
 HEADERS  += mainwindow.h \
     imglabel.h \
@@ -27,7 +28,8 @@ HEADERS  += mainwindow.h \
     mode.h \
     treecluster.h \
     kmeans.h \
-    kmedoids.h
+    kmedoids.h \
+    vcm.h
 
 FORMS    += mainwindow.ui
 

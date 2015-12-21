@@ -14,10 +14,27 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->open->setShortcut(Qt::Key_O);
     ui->save->setShortcut(Qt::Key_S);
     ui->load->setShortcut(Qt::Key_L);
+    ui->labelstate->setText("state: view");
     modeMap.insert(std::pair<QString,int>("KmedoidsPAM-mvMatrix",0));
     modeMap.insert(std::pair<QString,int>("KmedoidsZwz-mvMatrix",1));
     modeMap.insert(std::pair<QString,int>("kmeans-centroid_SaliencyArea",2));
     modeMap.insert(std::pair<QString,int>("kmeans-cameraDistanceDirection",3));
+
+    this->setFocusPolicy(Qt::StrongFocus);
+    flagViewMode = true;
+
+    connect(label,SIGNAL(vfModeChanged(bool)),
+            this,SLOT(vfModeChanged(bool)));
+
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *e)
+{
+    if(e->key() == Qt::Key_Q)
+    {
+        viewModeChanged();
+        label->setViewMode(this->flagViewMode);
+    }
 }
 
 MainWindow::~MainWindow()
@@ -38,7 +55,7 @@ void MainWindow::on_open_clicked()
 
 void MainWindow::on_save_clicked()
 {
-//    label->save();
+    label->savePics();
 }
 
 void MainWindow::on_load_clicked()
@@ -47,5 +64,29 @@ void MainWindow::on_load_clicked()
     treeWidget = label->treeWidget;
     ui->treeScroll->setWidget(treeWidget);
     connect(treeWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
-                               label,SLOT(setCurItem()));
+            label,SLOT(setCurItem()));
+}
+
+void MainWindow::vfModeChanged(bool vfMode)
+{
+    flagViewMode = vfMode;
+    if(flagViewMode)
+        ui->labelstate->setText("state: view");
+    else
+        ui->labelstate->setText("state: choose");
+}
+
+void MainWindow::viewModeChanged()
+{
+//    flagViewMode = label->getViewMode();
+    if(flagViewMode)
+    {
+        flagViewMode = false;
+        ui->labelstate->setText("state: choose");
+    }
+    else
+    {
+        flagViewMode = true;
+        ui->labelstate->setText("state: view");
+    }
 }

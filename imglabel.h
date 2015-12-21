@@ -16,6 +16,7 @@
 #include <QDateTime>
 #include <QtDebug>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QProcess>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -29,6 +30,7 @@
 #include <fstream>
 #include "kmeans.h"
 #include "kmedoids.h"
+#include "vcm.h"
 
 class ImgLabel : public QLabel
 {
@@ -38,13 +40,24 @@ public:
 
     void mousePressEvent(QMouseEvent *e);
     void mouseReleaseEvnet(QMouseEvent *e);
+    void keyPressEvent(QKeyEvent *e);
     void paintEvent(QPaintEvent *e);
 
     void open(QString modeString,int mode);
 
     void save();
 
+    void savePics();
+
     void load();
+
+    void setViewMode(bool flagViewMode);
+
+    bool getViewMode();
+
+signals:
+    void vfModeChanged(bool flag);
+
 public slots:
     void setCurItem();
 
@@ -117,6 +130,12 @@ private:
                            QStringList &folder,
                            QStringList &file);
 
+    void setLabelSize(int num);
+
+    void deletePic(int num);
+
+
+
 public:
     QTreeWidget *treeWidget;
 private:
@@ -130,6 +149,7 @@ private:
 
     QImage image;
     QString rgbPath;
+    QString savePath;
     int NUMCluster;
     QString path;
     QStringList filelist;
@@ -156,6 +176,7 @@ private:
     std::map<QString , int > pimap;
 //    QString modeString;
     int mode;
+    VCM vcm;
 };
 
 #endif // IMGLABEL_H

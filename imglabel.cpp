@@ -1,4 +1,5 @@
 ﻿#include "imglabel.h"
+#include <fstream>
 
 ImgLabel::ImgLabel(QTreeWidget *treeWidget, QWidget *parent):
     QLabel(parent)
@@ -10,6 +11,7 @@ ImgLabel::ImgLabel(QTreeWidget *treeWidget, QWidget *parent):
     NUMCluster = 2;
     tc = new TreeCluster();
     curItem = NULL;
+    this->setFocusPolicy(Qt::StrongFocus);
 }
 
 void ImgLabel::mousePressEvent(QMouseEvent *e)
@@ -22,6 +24,8 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
     int cluster = pos.x() / imw + pos.y() / imh * f1;
     // click the white area will map to a cluster larger then NUMCluster
     // will lead to error
+    if(vcm.f_vcm)
+    {
 #ifdef TREECLUSTER
     if(cluster >= cur->numc && cur->numc > 1)
         return;
@@ -43,6 +47,18 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
     std::cout << "mouse press event " <<cluster<< " " << tmpPath.toStdString() << std::endl;
     tmpPath.replace("/","\\"); //将地址中的"/"替换为"\"，因为在Windows下使用的是"\"。
     QProcess::startDetached("explorer "+tmpPath);
+    }
+    else
+    {
+        if(pos.x() > labelw)
+            return;
+        if(pos.y() > labelh)
+            return;
+        if(cluster >= cur->num)
+            return;
+        vcm.setChoosed(cluster);
+        update();
+    }
 
 #endif
 
@@ -51,6 +67,59 @@ void ImgLabel::mousePressEvent(QMouseEvent *e)
 void ImgLabel::mouseReleaseEvnet(QMouseEvent *e)
 {
 
+}
+
+void ImgLabel::keyPressEvent(QKeyEvent *e)
+{
+    if(e->key() == Qt::Key_Delete)
+    {
+        if(vcm.choosed != -1)
+        {
+            int delId = cur->imgs[vcm.choosed];
+            std::map<QTreeWidgetItem* , TreeCluster* >::iterator it = icmap.begin();
+            for(;it != icmap.end(); it++)
+            {
+                if(it->second->deletePic(delId) == 1)
+                {
+                    it->first->setText(1,QString::number(it->second->numc));
+                    it->first->setText(2,QString::number(it->second->num));
+                }
+            }
+            vcm.deletePic(delId);
+            // 删掉这个图片之后，当前选择的图片ID可能会超过当前这个类中图片的个数
+            if(vcm.choosed <= cur->num)
+                vcm.choosed--;
+            setLabelSize(cur->num);
+//            std::cout << "delete id     ..... " << cur
+            std::cout << "delete num .............. " << cur->num << std::endl;
+            update();
+        }
+    }
+    if(e->key() == Qt::Key_Q)
+    {
+        vcm.f_vcm = !vcm.f_vcm;
+        setViewMode(vcm.f_vcm);
+        emit vfModeChanged(vcm.f_vcm);
+    }
+    if(e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_Z)
+    {
+        std::map<QTreeWidgetItem* , TreeCluster* >::iterator it = icmap.begin();
+        int recovery = vcm.recovery();
+        std::cout << "recovery " << recovery << std::endl;
+        if(recovery == -1)
+            return;
+        for(;it != icmap.end(); it++)
+        {
+            if(it->second->recoveryPic(recovery) == 1)
+            {
+                it->first->setText(1,QString::number(it->second->numc));
+                it->first->setText(2,QString::number(it->second->num));
+            }
+        }
+        setLabelSize(cur->num);
+        std::cout << "recovery num .............. " << cur->num << std::endl;
+        update();
+    }
 }
 
 void ImgLabel::paintEvent(QPaintEvent *e)
@@ -88,15 +157,27 @@ void ImgLabel::paintEvent(QPaintEvent *e)
         // so it is
         std::cout << "cur numc " << cur->numc << std::endl;
         std::cout << "cur num " << cur->num << std::endl;
-        if(cur->numc != 1)
-            for(int i=0; i < cur->numc; i++)
+        if(vcm.f_vcm)
+        {
+            if(cur->numc != 1)
+                for(int i=0; i < cur->numc; i++)
+                {
+    //                std::cout << "cur num " << i << "cur pic id " << cur->get(i)->picID << std::endl;
+                    if(!cur->get(i))
+                        return;
+                    QImage tmp = mat2Qimage(scImgs[cur->get(i)->picID]);
+                    painter->drawImage(shift(cateCenterLabel[i]),tmp);
+                }
+            else
             {
-//                std::cout << "cur num " << i << "cur pic id " << cur->get(i)->picID << std::endl;
-                if(!cur->get(i))
-                    return;
-                QImage tmp = mat2Qimage(scImgs[cur->get(i)->picID]);
-                painter->drawImage(shift(cateCenterLabel[i]),tmp);
+                for(int i=0; i < cur->num; i++)
+                {
+    //                std::cout << "cur num " << i << "cur pic id " << cur->imgs[i] << std::endl;
+                    QImage tmp = mat2Qimage(scImgs[cur->imgs[i]]);
+                    painter->drawImage(shift(cateCenterLabel[i]),tmp);
+                }
             }
+        }
         else
         {
             for(int i=0; i < cur->num; i++)
@@ -104,7 +185,12 @@ void ImgLabel::paintEvent(QPaintEvent *e)
 //                std::cout << "cur num " << i << "cur pic id " << cur->imgs[i] << std::endl;
                 QImage tmp = mat2Qimage(scImgs[cur->imgs[i]]);
                 painter->drawImage(shift(cateCenterLabel[i]),tmp);
+
             }
+            if(vcm.choosed != -1)
+                painter->drawRect(shift(cateCenterLabel[vcm.choosed]).x(),
+                                  shift(cateCenterLabel[vcm.choosed]).y(),
+                                  imw,imh);
         }
 
         std::cout << "paintEvent done " << std::endl;
@@ -140,8 +226,10 @@ void ImgLabel::open(QString modeString,int mode)
 
     // set path
     int pos;
+    // filename D:/viewpoint/kmx/201511282241/kxm.matrix
     path = filename;
     QFileInfo fileInfo(filename);
+    // path D:/viewpoint/kmx/201511282241/proj
     path = fileInfo.absoluteDir().absolutePath().append("/proj");
 
     std::cout << "path " << path.toStdString() << std::endl;
@@ -169,9 +257,14 @@ void ImgLabel::open(QString modeString,int mode)
                          0,
                          tmpcenter,
                          elements);
+    // remove proj
+    // pathC D:/viewpoint/kmx/201511282241
     pos = path.lastIndexOf('/');
     QString pathC = path.remove(pos,path.length() - pos);
     dir = QDir(pathC);
+    // save path is D:/viewpoint/kmx/201511282241/tc.fname
+    savePath = pathC + "/" + tc->fname;
+
     std::cout << "kmeans before" << std::endl;
     switch(mode)
     {
@@ -196,13 +289,14 @@ void ImgLabel::open(QString modeString,int mode)
     std::cout << "tree widget done" << std::endl;
 
     // factor of cate
-    factorOfCate(tc->numc);
-    setCateCenterLabel(f1,f2);
-    labelw = f1 * imw;
-    labelh = f2 * imh;
-    QPixmap tmp(labelw,labelh);
-    tmp.fill(Qt::white);
-    this->setPixmap(tmp);
+//    factorOfCate(tc->numc);
+//    setCateCenterLabel(f1,f2);
+//    labelw = f1 * imw;
+//    labelh = f2 * imh;
+//    QPixmap tmp(labelw,labelh);
+//    tmp.fill(Qt::white);
+//    this->setPixmap(tmp);
+    setLabelSize(tc->numc);
     cur = tc;
     std::cout << "tc numc " << tc->numc << std::endl;
     update();
@@ -463,6 +557,7 @@ void ImgLabel::setKmeans(int k)
 
 void ImgLabel::setCateCenterLabel(int f1,int f2)
 {
+    cateCenterLabel.clear();
 #ifdef NETMAP
     int wstep = imw * 5;
     int hstep = imh * 5;
@@ -513,7 +608,7 @@ void ImgLabel::save()
     // contains the cooresponding image
 
     // make a folder named time_NUMCLUSTERS
-    int pos = path.lastIndexOf('/');
+    int pos =path.lastIndexOf('/');
     QString pathC = path.remove(pos,path.length() - pos);
     QDir dir(pathC);
     QDateTime time = QDateTime::currentDateTime();
@@ -545,6 +640,37 @@ void ImgLabel::save()
 
 }
 
+void ImgLabel::savePics()
+{
+    QDateTime time = QDateTime::currentDateTime();
+    QString folder = time.toString("yyyyMMddhhmm");
+    std::cout << "save pic filename path " << savePath.toStdString() << std::endl;
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save File"),
+                               savePath + "/" + folder + ".pic",
+                               tr("pic (*.pic)"));
+    std::cout << "save pic filename " << fileName.toStdString() << std::endl;
+    if(fileName == NULL)
+    {
+        return;
+    }
+    else
+    {
+        std::ofstream opic(fileName.toStdString().c_str());
+        for(int i=0;i<tc->imgs.size();i++)
+        {
+            QString tmpfile = filelist.at(tc->imgs[i]);
+            // link file
+            if(tmpfile.at(tmpfile.length() - 1) == 'k')
+            {
+                int pos = tmpfile.lastIndexOf('.');
+                tmpfile = tmpfile.remove(pos,tmpfile.length() - pos);
+            }
+            opic << tmpfile.toStdString() << std::endl;
+        }
+        opic.close();
+    }
+}
+
 void ImgLabel::load()
 {
     QFileDialog *openFilePath = new QFileDialog(this,"directory","file");
@@ -554,6 +680,7 @@ void ImgLabel::load()
         std::cout << "openFilePath " << openFilePath->directory().absolutePath().toStdString() << std::endl;
         // path = E:\ViewPoint\kxm\201511231826\201512151654_19
         path = openFilePath->directory().absolutePath();
+        savePath = path;
 //         rgbPath = E:\ViewPoint\kxm
         rgbPath = path;
         std::cout << "rgbPath " << rgbPath.toStdString() << std::endl;
@@ -604,7 +731,7 @@ void ImgLabel::load()
 
         for(int i=0;i < filelist.size();i++)
             std::cout << filelist.at(i).toStdString() << std::endl;
-
+        this->filelist = filelist;
         std::vector<int> elements;
         for(int i=0;i<filelist.size();i++)
             elements.push_back(i);
@@ -666,10 +793,28 @@ void ImgLabel::load()
 
 }
 
+void ImgLabel::setViewMode(bool flagViewMode)
+{
+    vcm.f_vcm = flagViewMode;
+    if(!vcm.f_vcm)
+        setLabelSize(cur->numc > cur->num ? cur->numc : cur->num);
+    else
+        setLabelSize(cur->numc);
+    update();
+}
+
+bool ImgLabel::getViewMode()
+{
+    return vcm.f_vcm;
+}
+
 void ImgLabel::setCurItem()
 {
     curItem = treeWidget->currentItem();
     cur = icmap[curItem];
+    if(cur->num < vcm.choosed )
+        vcm.choosed = -1;
+    setLabelSize(cur->numc > cur->num ? cur->numc : cur->num);
     update();
 }
 
@@ -871,6 +1016,25 @@ void ImgLabel::getFileFolderList(QString path,
     dir->setNameFilters(filters);
 
     filelist = dir->entryList();
+}
+
+void ImgLabel::setLabelSize(int num)
+{
+//    factorOfCate(num);
+    f1 = 6, f2 = 0;
+    while(f1 * f2 < num)
+        f2++;
+    setCateCenterLabel(f1,f2);
+    labelw = f1 * imw;
+    labelh = f2 * imh;
+    QPixmap tmp(labelw,labelh);
+    tmp.fill(Qt::white);
+    this->setPixmap(tmp);
+}
+
+void ImgLabel::deletePic(int num)
+{
+
 }
 
 

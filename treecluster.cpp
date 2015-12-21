@@ -1,5 +1,5 @@
 ﻿#include "treecluster.h"
-
+#include <algorithm>
 TreeCluster::TreeCluster()
 {
     fname = "";
@@ -57,3 +57,41 @@ TreeCluster *TreeCluster::get(int index)
     }
     return p;
 }
+
+int TreeCluster::deletePic(int pic)
+{
+    for(int i=0;i<imgs.size();i++)
+    {
+        if(imgs[i] == pic)
+        {
+            imgs.erase(imgs.begin() + i);
+            garbge.push(pic);
+            this->num--;
+            this->numc = (int)sqrt((double)num);
+            return 1;
+        }
+    }
+    return -1;
+}
+
+int TreeCluster::recoveryPic(int pic)
+{
+    std::cout << "recovery Pic before " << pic << std::endl;
+    if(garbge.empty())
+        return -1;
+    if(garbge.top() != pic)
+        return -1;
+    std::cout << "recovery Pic " << pic << std::endl;
+    garbge.pop();
+    imgs.push_back(pic);
+    std::sort(imgs.begin(),imgs.end(),std::less<int>());
+    std::cout << "recovery ... ";
+    for(int i=0;i<imgs.size();i++)
+        std::cout << imgs[i] << " ";
+    std::cout << std::endl;
+    this->num++;
+    this->numc = (int)sqrt((double)num);
+    return 1;
+}
+
+

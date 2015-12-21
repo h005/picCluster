@@ -5,6 +5,7 @@
 #include <QString>
 #include <vector>
 #include <math.h>
+#include <stack>
 
 class TreeCluster
 {
@@ -21,6 +22,10 @@ public:
 
     TreeCluster* get(int i);
 
+    int deletePic(int pic);
+
+    int recoveryPic(int pic);
+
 public:
     // folder name or file name
     // include parent's path, it should be substring
@@ -36,6 +41,9 @@ public:
     std::vector<float> center;
     // imgs id in this cluster
     std::vector<int> imgs;
+    // garbge stores the pics was deleted
+    // when recover the top pic will be pop back into imgs
+    std::stack<int> garbge;
 };
 
 #endif // TREECLUSTER_H
